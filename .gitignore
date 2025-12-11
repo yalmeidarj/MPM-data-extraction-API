@@ -2,3 +2,6 @@ instructions.txt
 
 .env
 __pycache__/
+
+parser.js
+parser.py

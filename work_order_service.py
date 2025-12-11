@@ -679,6 +679,7 @@ async def process_picture(
     client_name: Optional[str] = Form(None),
     site_address: Optional[str] = Form(None),
     reference_wo_id: Optional[str] = Form(None),
+    cdn_urls: Optional[Union[List[str], str]] = Form(None, alias="cdnUrl"),
 ) -> WorkOrder:
     """Extract a partial work order from one or more image files."""
     hints = PictureRequest(
@@ -689,7 +690,24 @@ async def process_picture(
     try:
         extracted = await extract_work_order_from_images(files, hints)
         work_order = postprocess_work_order(extracted, hints)
-        work_order.Picture = [upload.filename for upload in files if upload.filename]
+        picture_sources: List[str] = []
+        if cdn_urls:
+            raw_values: Sequence[str]
+            if isinstance(cdn_urls, str):
+                try:
+                    parsed = json.loads(cdn_urls)
+                except json.JSONDecodeError:
+                    parsed = cdn_urls
+                if isinstance(parsed, list):
+                    raw_values = [str(value) for value in parsed]
+                else:
+                    raw_values = [str(parsed)]
+            else:
+                raw_values = cdn_urls
+            picture_sources = [value.strip() for value in raw_values if value and value.strip()]
+        else:
+            picture_sources = [upload.filename for upload in files if upload.filename]
+        work_order.Picture = picture_sources or None
         return work_order
     except Exception as exc:  # pragma: no cover - surface to caller
         logger.exception("Failed to process picture work order")
